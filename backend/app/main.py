@@ -1,31 +1,29 @@
 import os
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware  # [추가] CORS 도구
-from dotenv import load_dotenv 
+from fastapi.middleware.cors import CORSMiddleware
+from dotenv import load_dotenv  # 추가
 from .database import engine
 from . import models
-from app.api.recipe import router as recipe_router 
+from app.api.recipe import router as recipe_router
 
-# 1. 환경 변수 로드 (최상단)
+# [가장 중요] 최상단에서 환경 변수를 로드합니다.
 load_dotenv()
 
-# 2. DB 테이블 생성 (기존 유지)
+# 터미널에서 키가 잘 읽혔는지 확인하는 디버깅 코드 (성공하면 나중에 지우세요)
+print(f"🚀 [시스템 체크] SPOON_API_KEY 로드 상태: {'성공' if os.getenv('SPOON_API_KEY') else '실패'}")
+
 models.Base.metadata.create_all(bind=engine)
 
-# 3. 앱 객체 생성
 app = FastAPI(title="Capstone Recipe API")
 
-# 4. [핵심 추가] 프론트엔드(Flutter)와 통신을 위한 CORS 설정
-# 이 코드가 있어야 나중에 친구들이 만든 앱에서 접속이 가능합니다!
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],      # 모든 접속 허용
+    allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["*"],      # 모든 방식(GET, POST 등) 허용
-    allow_headers=["*"],      # 모든 데이터 헤더 허용
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
-# 5. 라우터 등록 (기존 유지)
 app.include_router(recipe_router)
 
 @app.get("/")
