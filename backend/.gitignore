@@ -1,5 +1,22 @@
-.venv/
-venv/
-__pycache__/
-*.pyc
-.env
+# 데이터베이스 (로컬 테스트용 DB 파일이 생성될 경우 대비)
+*.sqlite3
+*.db
+
+# 운영체제 관련 (맥/윈도우 환경 차이 방지)
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 로그 및 임시 파일
+*.log
+tmp/
+temp/
+
+# IDE 관련 (VS Code나 PyCharm 설정이 팀원과 꼬이지 않게 함)
+.vscode/
+.idea/
+
+# Flutter 관련 (이미 frontend/.gitignore가 있겠지만, 백엔드와 같이 관리할 때 안전함)
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
