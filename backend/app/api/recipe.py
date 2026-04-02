@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
+from typing import List
 from app.database import get_db
-from app.schemas import RecipePriceResponse
+from app.schemas import RecipePriceResponse, IngredientHistory
 from app import crud
 from app.services.spoonacular import get_recipe_info
 from app.services.naver_shop import get_lowest_price
@@ -11,32 +12,34 @@ router = APIRouter()
 
 @router.get("/recipe/{recipe_id}/price", response_model=RecipePriceResponse)
 def get_recipe_price(recipe_id: int, db: Session = Depends(get_db)):
-    
-    # 1. 레시피 및 재료 정보 가져오기
+    # 1. 정보 수집 (Spoonacular)
     title, ko_name = get_recipe_info(recipe_id)
     
-    # 오류 발생 시 즉시 반환
-    if title in ["설정 오류", "API 오류", "시스템 에러"]:
-        return {
-            "recipe_title": title,
-            "ingredient": ko_name,
-            "lowest_price": "0",
-            "ai_advice": "서버 설정을 확인해주세요."
-        }
+    if title in ["설정 오류", "API 오류"]:
+        return {"recipe_title": title, "ingredient": ko_name, "lowest_price": "0", "ai_advice": "점검중"}
 
-    # 2. 네이버 최저가 검색
+    # 2. 가격 조회 (Naver)
     price_str = get_lowest_price(ko_name)
     
-    # 3. HAI-GPT 실시간 조언 생성 (Claude 3.5)
+    # 3. AI 조언 생성 (HAI-GPT)
     real_ai_advice = get_ai_advice(ko_name, price_str)
     
-    # 4. DB에 결과 저장 (최신 물가 업데이트)
-    crud.update_or_create_ingredient(db, name=ko_name, price=price_str)
+    # 4. [핵심] DB에 모든 정보 기록 (정합성 맞춤)
+    crud.update_or_create_ingredient(
+        db, 
+        title=title, 
+        name=ko_name, 
+        price=price_str, 
+        advice=real_ai_advice
+    )
     
-    # 5. 최종 데이터 반환 
     return {
         "recipe_title": title,
         "ingredient": ko_name,
         "lowest_price": price_str,
         "ai_advice": real_ai_advice
     }
+
+@router.get("/history", response_model=List[IngredientHistory])
+def get_search_history(db: Session = Depends(get_db)):
+    return crud.get_ingredient_history(db)

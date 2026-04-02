@@ -20,3 +20,9 @@ temp/
 .dart_tool/
 .flutter-plugins
 .flutter-plugins-dependencies
+
+.env
+__pycache__/
+*.pyc
+test.db
+.venv/
