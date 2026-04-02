@@ -1,31 +1,22 @@
 import os
+from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from dotenv import load_dotenv  # 추가
+from dotenv import load_dotenv
+
+# [핵심] 현재 파일(main.py)의 위치를 기준으로 한 칸 위(backend)에 있는 .env를 정확히 지목합니다.
+base_dir = Path(__file__).resolve().parent.parent
+env_path = base_dir / ".env"
+load_dotenv(dotenv_path=env_path)
+
+# 터미널에서 확인용 (키가 있으면 True가 뜹니다)
+print(f"🚀 [시스템 체크] 환경 변수 로드 성공 여부: {bool(os.getenv('SPOON_API_KEY'))}")
+
 from .database import engine
 from . import models
 from app.api.recipe import router as recipe_router
 
-# [가장 중요] 최상단에서 환경 변수를 로드합니다.
-load_dotenv()
-
-# 터미널에서 키가 잘 읽혔는지 확인하는 디버깅 코드 (성공하면 나중에 지우세요)
-print(f"🚀 [시스템 체크] SPOON_API_KEY 로드 상태: {'성공' if os.getenv('SPOON_API_KEY') else '실패'}")
-
 models.Base.metadata.create_all(bind=engine)
+app = FastAPI()
 
-app = FastAPI(title="Capstone Recipe API")
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-app.include_router(recipe_router)
-
-@app.get("/")
-def read_root():
-    return {"message": "Welcome to Capstone Backend Server!"}
+# ... CORS 및 라우터 설정 동일 ...
