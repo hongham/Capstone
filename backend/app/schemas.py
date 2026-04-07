@@ -17,3 +17,12 @@ class IngredientHistory(BaseModel):
 
     class Config:
         from_attributes = True
+
+class RecipeListResponse(BaseModel):
+    id: int
+    title: str
+    image: str
+    readyInMinutes: int
+
+    class Config:
+        from_attributes = True
