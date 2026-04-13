@@ -1,53 +1,59 @@
 import os
-import requests
-from dotenv import load_dotenv
+import httpx
+from fastapi import HTTPException
 
-load_dotenv()
+NAVER_CLIENT_ID = os.getenv("NAVER_CLIENT_ID")
+NAVER_CLIENT_SECRET = os.getenv("NAVER_CLIENT_SECRET")
 
-# 환경 변수 로드
-NAVER_ID = os.getenv("NAVER_CLIENT_ID")
-NAVER_SECRET = os.getenv("NAVER_CLIENT_SECRET")
+async def get_naver_shopping_item(query: str):
+    # 1. 자취생에게 필요 없는 기본 품목 및 포장재 제외
+    exclude_keywords = ["소금", "후추", "물", "설탕", "박스", "봉투", "용기", "스티커","업소"]
+    if any(k in query for k in exclude_keywords):
+        return None
 
-def get_lowest_price(ko_ingredient: str):
-    """단일 재료의 최저가를 검색합니다."""
-    if not NAVER_ID or not NAVER_SECRET:
-        return "0"
-
-    headers = {
-        "X-Naver-Client-Id": NAVER_ID,
-        "X-Naver-Client-Secret": NAVER_SECRET
-    }
-    # [수정] query 인코딩 문제를 방지하기 위해 params 방식을 권장합니다.
     url = "https://openapi.naver.com/v1/search/shop.json"
-    params = {"query": ko_ingredient, "display": 1, "sort": "asc"}
+    headers = {
+        "X-Naver-Client-Id": NAVER_CLIENT_ID,
+        "X-Naver-Client-Secret": NAVER_CLIENT_SECRET
+    }
     
-    try:
-        res = requests.get(url, headers=headers, params=params, timeout=5)
-        if res.status_code == 200:
-            items = res.json().get('items')
-            # 가격 데이터에 콤마나 문자가 섞여 있을 수 있으니 숫자만 추출
-            return items[0]['lprice'] if items else "0"
-        return "0"
-    except:
-        return "0"
+    # [핵심] 검색어 뒤에 '식재료'를 붙여 식품 카테고리 유도
+    params = {
+        "query": f"{query} 식재료", 
+        "display": 10,
+        "sort": "sim"
+    }
 
-def get_total_ingredients_price(ko_ingredients_list: list):
-    """
-    여러 개의 한글 재료 리스트를 받아 총 합산 가격을 계산합니다.
-    (API 과부하를 방지하기 위해 상위 3~5개 정도만 계산하는 것이 좋습니다.)
-    """
-    total_price = 0
-    detailed_prices = []
-
-    # 너무 많은 재료를 다 검색하면 서버가 느려지므로 최대 4개까지만!
-    for ingredient in ko_ingredients_list[:4]:
-        price_str = get_lowest_price(ingredient)
-        price_int = int(price_str) if price_str.isdigit() else 0
+    async with httpx.AsyncClient() as client:
+        response = await client.get(url, headers=headers, params=params)
+        data = response.json()
         
-        if price_int > 0:
-            total_price += price_int
-            detailed_prices.append(f"{ingredient}({price_int}원)")
+        if data.get("items"):
+            for item in data["items"]:
+                title = item["title"].replace("<b>", "").replace("</b>", "")
+                price = int(item["lprice"])
+                
+                # [필터] 요리와 상관없는 공산품 원천 차단
+                bad_stuff = ["LP", "중고", "띠지", "퍼프", "화장", "에어캡", "포장재", "인쇄", "제작", "공병", "봉투"]
+                if any(bs in title for bs in bad_stuff):
+                    continue
+                
+                # 자취생 적정 가격 범위 (너무 싼 배송비 낚시나 너무 비싼 대용량 제외)
+                if 500 < price < 50000:
+                    return {
+                        "title": title,
+                        "lprice": price,
+                        "link": item["link"]
+                    }
+    return None
 
-    # 상세 내역 문자열 생성 (예: "마늘(500원), 양파(1200원)...")
-    summary = ", ".join(detailed_prices)
-    return total_price, summary
+async def get_total_shopping_list(ingredients: list):
+    items = []
+    total_price = 0
+    for ing in ingredients:
+        if len(ing) < 2: continue
+        result = await get_naver_shopping_item(ing)
+        if result:
+            items.append(result)
+            total_price += result["lprice"]
+    return {"items": items, "total_price": total_price}
