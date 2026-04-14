@@ -26,8 +26,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# [핵심] 라우터 등록: /api 주소를 붙여서 관리합니다.
-app.include_router(recipe_router, prefix="/api", tags=["Recipes"])
+app.include_router(recipe_router, prefix="/api")
 
 @app.get("/", tags=["Root"])
 def root():
